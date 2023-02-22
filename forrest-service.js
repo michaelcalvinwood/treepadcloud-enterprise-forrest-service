@@ -68,7 +68,12 @@ const eywaSubClient = eywaPubClient.duplicate();
  * Create socket.io service
  */
 
-const io = socketio(httpsServer);
+const io = socketio(httpsServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
 io.on('connection', (socket) => {
   console.log('Got socket connection', socket.id);
