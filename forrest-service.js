@@ -63,38 +63,47 @@ let window = {};
 window.token = {};
 
 const handleToken = (socket, token) => {
-  console.log('token', token, socket.id);
+  console.log('handleToken', token, socket.id);
 
-  let tokenVerification = false;
-  try {
-      tokenVerification = jwt.verify(token.signed, JwtSecretKey);
-  } catch (e) {
-      console.error(e);
-      return socket.emit('message', {msg: "Error trying to validate user token."});
-  }
+  return new Promise((resolve, reject) => {
+    let tokenVerification = false;
+    try {
+        tokenVerification = jwt.verify(token.signed, JwtSecretKey);
+    } catch (e) {
+        console.error(e);
+        socket.emit('message', {msg: "Error trying to validate user token."});
+        resolve('error');
+        return;
+    }
 
-  const info = jwt.decode(token.signed);
+    const info = jwt.decode(token.signed);
 
-  const { exp } = info;
+    const { exp } = info;
 
-  const curTime = Date.now();
-  const expiration = exp * 1000;
+    const curTime = Date.now();
+    const expiration = exp * 1000;
 
-  console.log('compare', curTime, expiration);
+    console.log('compare', curTime, expiration);
 
-  if (curTime >= expiration) {
-      return socket.emit('message', {
-        msg: "Login session has expired. Please login again.",
-        action: 'reset'
-      })
-  }
+    if (curTime >= expiration) {
+        
+        socket.emit('message', {
+          msg: "Login session has expired. Please login again.",
+          action: 'reset'
+        });
+        resolve('error');
+        return;
+    }
 
-  /*
-   * Set the token to the decoded info to ensure integrity
-   */
+    /*
+    * Set the token to the decoded info to ensure integrity
+    */
 
-  window.token[socket.id] = info;
-  socket.emit('message', {msg: "Token authenticated"});
+    window.token[socket.id] = info;
+    socket.emit('message', {msg: "Token authenticated"});
+    resolve('ok');
+  })
+  
 }
 
 const isAuthenticated = (socket, resourceName) => {
@@ -122,10 +131,18 @@ const cleanUpSocket = socket => {
 
 }
 
+const createTree = (socket, info) => {
+  return new Promise((resolve, reject) => {
+    console.log('createTree', info);
+    resolve('ok');
+  })
+}
+
 const handleSocket = socket => {
   console.log('handleSocket');
   socket.on('disconnect', () => cleanUpSocket(socket));
   socket.on('token', token => handleToken(socket, token));
+  socket.on('createTree', info => createTree(socket, info));
 }
 
 /*
