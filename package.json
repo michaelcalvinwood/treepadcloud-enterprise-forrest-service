@@ -10,9 +10,11 @@
   "license": "SEE LICENSE IN license.md",
   "dependencies": {
     "@socket.io/redis-adapter": "^8.1.0",
+    "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
     "redis": "^4.6.4",
     "socket.io": "^4.6.1"
   }

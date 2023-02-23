@@ -29,11 +29,19 @@ const cors = require('cors');
  */
 
 const { createClient } = require("redis");
+
 /*
  * Socket.io requirements
  */
 const socketio = require('socket.io');
 const { createAdapter } = require("@socket.io/redis-adapter");
+
+/*
+ * JWT Requirements
+ */
+const jwt = require('jsonwebtoken');
+const bcrypt = require("bcrypt");
+
 
 /*
  * Configure express https service
@@ -46,14 +54,55 @@ app.use(cors());
 /*
  * Functions
  */
+let window = {};
+window.token = {};
 
 const handleToken = (socket, token) => {
   console.log('token', token, socket.id);
+
+  let tokenVerification = false;
+  try {
+      tokenVerification = jwt.verify(token.signed, JwtSecretKey);
+  } catch (e) {
+      console.error(e);
+      return socket.emit('message', {msg: "Error trying to validate user token."});
+  }
+
+  const info = jwt.decode(token.signed);
+
+  const { exp } = info;
+
+  const curTime = Date.now();
+  const expiration = exp * 1000;
+
+  console.log('compare', curTime, expiration);
+
+  if (curTime >= expiration) {
+      return socket.emit('message', {
+        msg: "Login session has expired. Please login again.",
+        action: 'reset'
+      })
+  }
+
+  /*
+   * Set the token to the decoded info to ensure integrity
+   */
+
+  window.token[socket.id] = info;
+  socket.emit('message', {msg: "Token authenticated"});
+
+}
+
+const cleanUpSocket = socket => {
+  console.log('cleanUpSocket', socket.id);
+  if (window.token[socket.id]) delete window.token[socket.id];
+
 }
 
 const handleSocket = socket => {
   console.log('handleSocket');
-  socket.on('token', token => handleToken(socket, token))
+  socket.on('disconnect', () => cleanUpSocket(socket));
+  socket.on('token', token => handleToken(socket, token));
 }
 
 /*
