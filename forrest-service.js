@@ -222,11 +222,13 @@ mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
     useUnifiedTopology: true
 })
 .then(db => {
+  console.log('Mongo DB is connected')
   mongoDb = db;
   mongoDbO = mongoDb.db('treepadcloud_forrest');
-  console.log('Mongo DB is connected')
   return createDbCollection('users')
 })
 .then(res => createDbCollection('trees'))
+.then(res => createDbCollection('branches'))
+.then(res => createDbCollection('leaves'))
 .catch(err => console.log(err));
 
