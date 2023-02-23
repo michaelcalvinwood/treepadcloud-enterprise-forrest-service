@@ -62,6 +62,8 @@ app.use(cors());
 let window = {};
 window.token = {};
 
+const sendMessage = (socket, msg) => socket.emit('message', {msg});
+
 const handleToken = (socket, token) => {
   console.log('handleToken', token, socket.id);
 
@@ -133,7 +135,8 @@ const cleanUpSocket = socket => {
 
 const createTree = (socket, info) => {
   return new Promise((resolve, reject) => {
-    console.log('createTree', info);
+    console.log('createTree', info, mongoDb);
+    sendMessage(socket, `Tree ${info.treeName} created.`);
     resolve('ok');
   })
 }
@@ -196,11 +199,34 @@ io.on('connection', (socket) => handleSocket(socket));
 
 const mongoUrl = 'mongodb://127.0.0.1:27017/';
 const mongoClient = mongo.MongoClient;
+let mongoDb = null;
+let mongoDbO = null;
+
+const createDbCollection = name => {
+  return new Promise((resolve, reject) => {
+   
+    mongoDbO.createCollection(name)
+    .then(res => {
+      console.log(`created collection ${name}`);
+      return resolve('ok');
+    })
+    .catch(err => {
+      console.log(`collection ${name} already exists`);
+      return resolve('ok');
+    })
+  })
+}
 
 mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
     useNewUrlParser: true, 
     useUnifiedTopology: true
 })
-.then(db => console.log('Mongo DB is connected'))
+.then(db => {
+  mongoDb = db;
+  mongoDbO = mongoDb.db('treepadcloud_forrest');
+  console.log('Mongo DB is connected')
+  return createDbCollection('users')
+})
+.then(res => createDbCollection('trees'))
 .catch(err => console.log(err));
 
