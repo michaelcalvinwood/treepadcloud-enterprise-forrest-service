@@ -10,6 +10,13 @@ const fs = require('fs');
 require('dotenv').config();
 
 /*
+ * Global Constants
+ */
+
+const JwtSecretKey = process.env.JWT_SECRET_KEY;
+const EywaPassword = process.env.EYWA_PASSWORD;
+
+/*
  * Express server requirements
  */
 const express = require('express');
@@ -29,12 +36,29 @@ const socketio = require('socket.io');
 const { createAdapter } = require("@socket.io/redis-adapter");
 
 /*
- * Create express https service
+ * Configure express https service
  */
 const app = express();
 app.use(express.static('public'));
 app.use(express.json({limit: '200mb'})); 
 app.use(cors());
+
+/*
+ * Functions
+ */
+
+const handleToken = (socket, token) => {
+  console.log('token', token, socket.id);
+}
+
+const handleSocket = socket => {
+  console.log('handleSocket');
+  socket.on('token', token => handleToken(socket, token))
+}
+
+/*
+ * Create Express HTTPS Service
+ */
 
 app.get('/', (req, res) => {
     res.send('Hello, World!');
@@ -60,7 +84,7 @@ const eywaPubClient = createClient({
     host: 'eywa.treepadcloud.com',
     port: 6379
   },
-  password: process.env.EYWA_PASSWORD
+  password: EywaPassword
 });
 const eywaSubClient = eywaPubClient.duplicate();
 
@@ -75,6 +99,4 @@ const io = socketio(httpsServer, {
   }
 });
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
-io.on('connection', (socket) => {
-  console.log('Got socket connection', socket.id);
-});
+io.on('connection', (socket) => handleSocket(socket));
