@@ -24,11 +24,16 @@ const https = require('https');
 const http = require('http');
 const cors = require('cors');
 
-/*
+/*  
  * Redis requirements
  */
 
 const { createClient } = require("redis");
+
+/*
+ * MongoDB requirements
+ */
+const mongo = require('mongodb');
 
 /*
  * Socket.io requirements
@@ -52,7 +57,7 @@ app.use(express.json({limit: '200mb'}));
 app.use(cors());
 
 /*
- * Functions
+ * App Functions
  */
 let window = {};
 window.token = {};
@@ -90,7 +95,25 @@ const handleToken = (socket, token) => {
 
   window.token[socket.id] = info;
   socket.emit('message', {msg: "Token authenticated"});
+}
 
+const isAuthenticated = (socket, resourceName) => {
+  const id = socket.id;
+  // check window.token.id to see if userName = resourceName
+    // if yes, return true
+  
+  // extract userName from resourceName
+
+  // check window.token.id to see if userName = extracted resourceName
+    // if yes, return true
+  
+  // check window.token.id to see if userName = resourceName
+    // if yes, return true
+    
+  // check permissions array to see socket has permissions for resource or its ancestors
+    // if yes return true
+
+  return false;
 }
 
 const cleanUpSocket = socket => {
@@ -149,3 +172,18 @@ const io = socketio(httpsServer, {
 });
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
 io.on('connection', (socket) => handleSocket(socket));
+
+/*
+ * Create MongoDB service
+ */
+
+const mongoUrl = 'mongodb://127.0.0.1:27017/';
+const mongoClient = mongo.MongoClient;
+
+mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
+    useNewUrlParser: true, 
+    useUnifiedTopology: true
+})
+.then(db => console.log('Mongo DB is connected'))
+.catch(err => console.log(err));
+
