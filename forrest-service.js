@@ -146,9 +146,21 @@ const mongoInsertOne = (socket, collection, document) => {
     .then(res => resolve(res))
     .catch(err => {
       console.error(err);
-      sendMessage(socket, 'Database Error: Could not insert document.');
+      sendMessage(socket, 'Database Error: Could not insert document for collection ' + collection);
       resolve('error');
     })
+  })
+}
+
+const mongoUpdateOne = async (socket, collection, query, update) => {
+  const debug = true;
+  if (debug) console.log('mongoUpdateOne', collection, query, update);
+  await mongoDbO.collection(collection).updateOne(query, update)
+  .then (res => debug ? console.log('mongoUpdateOne', res) : true)
+  .catch(err => {
+      console.error(err);
+      sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+      return false;
   })
 }
 
@@ -234,6 +246,7 @@ const addTree = (socket, userName) => {
 }
 
 const findTreeIds = async userName => {
+  const debug = false;
   let res;
   try {
     res = await mongoDbO.collection('users').find({_id : userName});
@@ -247,17 +260,17 @@ const findTreeIds = async userName => {
   let userDoc = await res.toArray();
   let treeIds = userDoc[0].trees;
 
-  
-  console.log('treeIds', treeIds);
+  if (debug) console.log('treeIds', treeIds);
 
   return treeIds;
 }
 
 const createTree = (socket, info) => {
+  const debug = true;
   const { icon, treeName, treeDesc, userName } = info;
 
   return new Promise(async (resolve, reject) => {
-    console.log('createTree', info);
+    if (debug) console.log('createTree', info);
 
     // check to see if the user already has a tree by that name
     const treeIds = await findTreeIds(userName);
@@ -277,7 +290,7 @@ const createTree = (socket, info) => {
 }
 
 const findTreeInfo = async treeId => {
-  const debug = true;
+  const debug = false;
   let res;
   try {
     if (debug) console.log(`findTreeInfo: db.trees.find({_id: '${treeId}'})`);
@@ -296,7 +309,7 @@ const findTreeInfo = async treeId => {
 }
 
 const getTrees = (socket, info) => {
-  const debug = true;
+  const debug = false;
   if (debug) console.log('getTrees', info);
   return new Promise(async (resolve, reject) => {
     const { userName } = info;
@@ -306,12 +319,21 @@ const getTrees = (socket, info) => {
     for (let i = 0; i < treeIds.length; ++i) {
       const treeInfo = await findTreeInfo(treeIds[i]);
       console.log('getTrees treeInfo', treeInfo);
-      trees.push(treeInfo);
+      trees.push(treeInfo[0]);
     }
     
     console.log('getTrees trees', trees);
     emit(socket, 'getTrees', trees);
     resolve('ok');
+  })
+}
+
+const setBranchName = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('setBranchName', info);
+
+  return new Promise(async (resolve, reject) => {
+    await mongoUpdateOne(socket, 'branches', {_id: info.id}, {$set: {name: info.name}})
   })
 }
 
@@ -321,6 +343,7 @@ const handleSocket = socket => {
   socket.on('token', token => handleToken(socket, token));
   socket.on('createTree', info => createTree(socket, info));
   socket.on('getTrees', (info) => getTrees(socket, info));
+  socket.on('setBranchName', info => setBranchName(socket, info));
 }
 
 /*
