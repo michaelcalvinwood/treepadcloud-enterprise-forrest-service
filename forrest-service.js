@@ -7,6 +7,8 @@ const fullchainPath = '/home/keys/treepadcloud.com.pem';
  */
 const process = require('process');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+
 require('dotenv').config();
 
 /*
@@ -62,7 +64,12 @@ app.use(cors());
 let window = {};
 window.token = {};
 
-const sendMessage = (socket, msg) => socket.emit('message', {msg});
+const emit = (socket, msg, data) => {
+  const debug = true;
+  if (debug) console.log('emit', msg, JSON.stringify(data, null, 4));
+  socket.emit(msg, data);
+}
+const sendMessage = (socket, msg) => emit(socket, 'message', {msg});
 
 const handleToken = (socket, token) => {
   console.log('handleToken', token, socket.id);
@@ -133,10 +140,177 @@ const cleanUpSocket = socket => {
 
 }
 
-const createTree = (socket, info) => {
+const mongoInsertOne = (socket, collection, document) => {
   return new Promise((resolve, reject) => {
-    console.log('createTree', info, mongoDb);
+    mongoDbO.collection(collection).insertOne(document)
+    .then(res => resolve(res))
+    .catch(err => {
+      console.error(err);
+      sendMessage(socket, 'Database Error: Could not insert document.');
+      resolve('error');
+    })
+  })
+}
+
+const mongoPush = (socket, collection, documentId, arrayName, element) => {
+  return new Promise((resolve, reject) => {
+    let $push = {};
+    $push[arrayName] = element;
+    let options = {};
+    options["$push"] = $push;
+    
+    mongoDbO.collection(collection).updateOne({_id: documentId}, options)
+    .then(res => resolve(res))
+    .catch(err => {
+      console.error(err);
+      sendMessage(socket, 'Database Error: Could not update document.');
+      resolve('error');
+    })
+  })
+}
+
+const createUser = (socket, userName) => {
+  return new Promise (async (resolve, reject) => {
+    await mongoInsertOne(socket, 'users', {
+      _id: userName,
+      trees: []
+    })
+    resolve('ok');
+  })
+}
+
+const addTree = (socket, userName) => {
+  return new Promise(async (resolve, reject) => {
+    treeId = `T-${userName}-${uuidv4()}`;
+    
+    let res;
+    try {
+      res = await mongoDbO.collection('users').insertOne({
+        _id: userName,
+        trees: [treeId]
+      })
+    } catch (e) {
+      console.error(e);
+      sendMessage(socket, `Database error: Could not create user document.`);
+      return resolve('ok');
+    }
+
+    branchId = `B-${userName}-${uuidv4()}`;
+    try {
+      res = await mongoDbO.collection('trees').insertOne({
+        _id: treeId,
+        icon,
+        name: treeName,
+        desc: treeDesc,
+        branches: [
+          {
+            branchId,
+          }
+        ]
+      })
+    } catch (e) {
+      console.error(e);
+      sendMessage(socket, `Databasse error: Could not create trees document.`);
+      return resolve('ok');
+    }
+
+    try {
+      res = await mongoDbO.collection('branches').insertOne({
+        _id: branchId,
+        level: 0,
+        name: '',
+        parent: null,
+        children: []
+      })
+    } catch (e) {
+      console.error(e);
+      sendMessage(socket, `Databasse error: Could not create branches document.`);
+      return resolve('ok');
+    }
+
+    console.log(`Create user document for ${userName}`);
+    resolve('ok');
+  })
+}
+
+const findTreeIds = async userName => {
+  let res;
+  try {
+    res = await mongoDbO.collection('users').find({_id : userName});
+
+  } catch (e) {
+    console.error(e);
+    sendMessage(socket, 'Database error finding user ' + userName);
+    return resolve('ok');
+  }
+
+  let userDoc = await res.toArray();
+  let treeIds = userDoc[0].trees;
+
+  
+  console.log('treeIds', treeIds);
+
+  return treeIds;
+}
+
+const createTree = (socket, info) => {
+  const { icon, treeName, treeDesc, userName } = info;
+
+  return new Promise(async (resolve, reject) => {
+    console.log('createTree', info);
+
+    // check to see if the user already has a tree by that name
+    const treeIds = await findTreeIds(userName);
+
+    let treeId = null;
+    let branchId = null;
+
+    if (!treeIds.length) {
+      await createUser(socket, userName);
+    } else {
+      // addTree(socket, userName, icon, treeName, treeDesc)
+    }
+
     sendMessage(socket, `Tree ${info.treeName} created.`);
+    resolve('ok');
+  })
+}
+
+const findTreeInfo = async treeId => {
+  const debug = true;
+  let res;
+  try {
+    if (debug) console.log(`findTreeInfo: db.trees.find({_id: '${treeId}'})`);
+    res = await mongoDbO.collection('trees').find({_id : treeId});
+  } catch (e) {
+    console.error('findTreeInfo', e);
+    sendMessage(socket, 'Database error finding tree ' + treeId);
+    return resolve('ok');
+  }
+
+  let treeInfo = await res.toArray();
+
+  if (debug) console.log('findTreeInfo treeInfo', treeInfo);
+
+  return treeInfo;
+}
+
+const getTrees = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('getTrees', info);
+  return new Promise(async (resolve, reject) => {
+    const { userName } = info;
+    const treeIds = await findTreeIds(userName);
+    if (debug) console.log('getTrees treeIds', treeIds);
+    let trees = [];
+    for (let i = 0; i < treeIds.length; ++i) {
+      const treeInfo = await findTreeInfo(treeIds[i]);
+      console.log('getTrees treeInfo', treeInfo);
+      trees.push(treeInfo);
+    }
+    
+    console.log('getTrees trees', trees);
+    emit(socket, 'getTrees', trees);
     resolve('ok');
   })
 }
@@ -146,6 +320,7 @@ const handleSocket = socket => {
   socket.on('disconnect', () => cleanUpSocket(socket));
   socket.on('token', token => handleToken(socket, token));
   socket.on('createTree', info => createTree(socket, info));
+  socket.on('getTrees', (info) => getTrees(socket, info));
 }
 
 /*
