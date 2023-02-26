@@ -141,6 +141,8 @@ const cleanUpSocket = socket => {
 }
 
 const mongoInsertOne = (socket, collection, document) => {
+  const debug = true;
+  if (debug) console.log('mongoInsertOne', collection, document);
   return new Promise((resolve, reject) => {
     mongoDbO.collection(collection).insertOne(document)
     .then(res => resolve(res))
@@ -153,6 +155,8 @@ const mongoInsertOne = (socket, collection, document) => {
 }
 
 const mongoUpdateOne = async (socket, collection, query, update) => {
+  const debug = true;
+  if (debug) console.log('mongoUpdateOne', collection, query, update);
   await mongoDbO.collection(collection).updateOne(query, update)
   .then (res => true)
   .catch(err => {
@@ -163,6 +167,8 @@ const mongoUpdateOne = async (socket, collection, query, update) => {
 }
 
 const mongoUpdate = async (socket, collection, query, update) => {
+  const debug = true;
+  if (debug) console.log('mongoUpdate', collection, query, update);
   await mongoDbO.collection(collection).updateOne(query, update)
   .then (res => true)
   .catch(err => {
@@ -173,6 +179,8 @@ const mongoUpdate = async (socket, collection, query, update) => {
 }
 
 const mongoDeleteOne = async (socket, collection, query) => {
+  const debug = true;
+  if (debug) console.log('mongoDeleteOne', collection, query);
   await mongoDbO.collection(collection).deleteOne(query)
   .then (res => true)
   .catch(err => {
@@ -227,57 +235,36 @@ const createUser = (socket, userName) => {
   })
 }
 
-const addTree = (socket, userName) => {
+const addTree = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('addTree', info);
+  const { userName, treeName, treeDesc, icon } = info;
+
   return new Promise(async (resolve, reject) => {
-    treeId = `T-${userName}-${uuidv4()}`;
-    
-    let res;
-    try {
-      res = await mongoDbO.collection('users').insertOne({
-        _id: userName,
-        trees: [treeId]
-      })
-    } catch (e) {
-      console.error(e);
-      sendMessage(socket, `Database error: Could not create user document.`);
-      return resolve('ok');
-    }
-
     branchId = `B-${userName}-${uuidv4()}`;
-    try {
-      res = await mongoDbO.collection('trees').insertOne({
-        _id: treeId,
-        icon,
-        name: treeName,
-        desc: treeDesc,
-        branches: [
-          {
-            branchId,
-          }
-        ]
-      })
-    } catch (e) {
-      console.error(e);
-      sendMessage(socket, `Databasse error: Could not create trees document.`);
-      return resolve('ok');
-    }
-
-    try {
-      res = await mongoDbO.collection('branches').insertOne({
-        _id: branchId,
-        level: 0,
-        name: '',
-        parent: null,
-        children: []
-      })
-    } catch (e) {
-      console.error(e);
-      sendMessage(socket, `Databasse error: Could not create branches document.`);
-      return resolve('ok');
-    }
-
-    console.log(`Create user document for ${userName}`);
-    resolve('ok');
+    await mongoInsertOne(socket, 'branches', {
+      _id: branchId,
+      name: '',
+      leaves: [],
+      activeLeaf: null
+    })
+   
+    treeId = `T-${userName}-${uuidv4()}`;
+    await mongoInsertOne(socket, 'trees', {
+      _id: treeId,
+      icon,
+      name: treeName,
+      desc: treeDesc,
+      branches: [
+        {
+          branchId,
+          level: 0
+        }
+      ]
+    })
+    
+    await mongoUpdateOne(socket, 'users', {_id: userName}, {$push: {trees: treeId}});
+    return resolve('ok');
   })
 }
 
@@ -309,25 +296,18 @@ const createTree = (socket, info) => {
     if (debug) console.log('createTree', info);
 
     // check to see if the user already has a tree by that name
-    const user = await mongoFindOne(socket, 'users', {_id: userName+'xxx'});
+    const user = await mongoFindOne(socket, 'users', {_id: userName});
     if (debug) console.log('createTree user', user);
 
+    if (!user) await createUser(socket, userName);
 
-
-    return;
-    const treeIds = await findTreeIds(userName);
-
-    let treeId = null;
-    let branchId = null;
-
-    if (!treeIds.length) {
-      await createUser(socket, userName);
-    } else {
-      // addTree(socket, userName, icon, treeName, treeDesc)
-    }
+    await addTree(socket, info);
+    getTrees(socket, info);
 
     sendMessage(socket, `Tree ${info.treeName} created.`);
     resolve('ok');
+
+    return;
   })
 }
 
