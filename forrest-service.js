@@ -192,10 +192,10 @@ const mongoDeleteOne = async (socket, collection, query) => {
 
 const mongoFindOne = async (socket, collection, query) => {
   const debug = true;
+  if (debug) console.log('mongoFindOne', collection, query);
   return new Promise(async (resolve, reject) => {
     await mongoDbO.collection(collection).findOne(query)
     .then (res => {
-      if (debug) console.log('mongoFindOne res', res);
       resolve(res);
       return res;
     })
@@ -245,8 +245,8 @@ const addTree = (socket, info) => {
     await mongoInsertOne(socket, 'branches', {
       _id: branchId,
       name: '',
-      leaves: [],
-      activeLeaf: null
+      modules: [],
+      activeModule: null
     })
    
     treeId = `T-${userName}-${uuidv4()}`;
@@ -281,7 +281,7 @@ const findTreeIds = async userName => {
   }
 
   let userDoc = await res.toArray();
-  let treeIds = userDoc[0].trees;
+  let treeIds = userDoc.length ? userDoc[0].trees : [];
 
   if (debug) console.log('treeIds', treeIds);
 
@@ -397,6 +397,26 @@ const deleteTree = (socket, info) => {
   })
 }
 
+const setActiveModule = (socket, info) => {
+  const debug = true;
+  console.log('setActiveModule', info);
+  const { userName, moduleId, branchId } = info;
+  const leafId = 'L' + branchId + '-' + moduleId;
+
+  return new Promise(async (resolve, reject) => {
+    await mongoUpdateOne(socket, 'branches', {_id: branchId}, {$addToSet: { modules: moduleId}, $set: {activeModule: leafId}});
+
+    const leaf = await mongoFindOne(socket, 'leaves', {_id: leafId});
+    if (!leaf) await mongoInsertOne(socket, 'leaves', {
+      _id: leafId,
+      info: null
+    })
+    emit(socket, 'getActiveModule', {moduleId, branchId})
+
+    return resolve('ok');
+  })
+}
+
 
 /*
  * Create Express HTTPS Service
@@ -483,6 +503,7 @@ const handleSocket = socket => {
   socket.on('setBranchName', info => setBranchName(socket, info));
   socket.on('getBranchName', info => getBranchName(socket, info));
   socket.on('deleteTree', info => deleteTree(socket, info));
+  socket.on('setActiveModule', info => setActiveModule(socket, info));
 }
 
 
