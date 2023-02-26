@@ -109,7 +109,7 @@ const handleToken = (socket, token) => {
     */
 
     window.token[socket.id] = info;
-    socket.emit('message', {msg: "Token authenticated"});
+    //socket.emit('message', {msg: "Token authenticated"});
     resolve('ok');
   })
   
@@ -153,14 +153,50 @@ const mongoInsertOne = (socket, collection, document) => {
 }
 
 const mongoUpdateOne = async (socket, collection, query, update) => {
-  const debug = true;
-  if (debug) console.log('mongoUpdateOne', collection, query, update);
   await mongoDbO.collection(collection).updateOne(query, update)
-  .then (res => debug ? console.log('mongoUpdateOne', res) : true)
+  .then (res => true)
   .catch(err => {
       console.error(err);
       sendMessage(socket, 'mongoUpdateOne: ' + err.err);
       return false;
+  })
+}
+
+const mongoUpdate = async (socket, collection, query, update) => {
+  await mongoDbO.collection(collection).updateOne(query, update)
+  .then (res => true)
+  .catch(err => {
+      console.error(err);
+      sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+      return false;
+  })
+}
+
+const mongoDeleteOne = async (socket, collection, query) => {
+  await mongoDbO.collection(collection).deleteOne(query)
+  .then (res => true)
+  .catch(err => {
+      console.error(err);
+      sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+      return false;
+  })
+}
+
+const mongoFindOne = async (socket, collection, query) => {
+  const debug = true;
+  return new Promise(async (resolve, reject) => {
+    await mongoDbO.collection(collection).findOne(query)
+    .then (res => {
+      if (debug) console.log('mongoFindOne res', res);
+      resolve(res);
+      return res;
+    })
+    .catch(err => {
+        console.error(err);
+        sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+        resolve(false);
+        return false;
+    })
   })
 }
 
@@ -273,6 +309,12 @@ const createTree = (socket, info) => {
     if (debug) console.log('createTree', info);
 
     // check to see if the user already has a tree by that name
+    const user = await mongoFindOne(socket, 'users', {_id: userName+'xxx'});
+    if (debug) console.log('createTree user', user);
+
+
+
+    return;
     const treeIds = await findTreeIds(userName);
 
     let treeId = null;
@@ -337,14 +379,44 @@ const setBranchName = (socket, info) => {
   })
 }
 
-const handleSocket = socket => {
-  console.log('handleSocket');
-  socket.on('disconnect', () => cleanUpSocket(socket));
-  socket.on('token', token => handleToken(socket, token));
-  socket.on('createTree', info => createTree(socket, info));
-  socket.on('getTrees', (info) => getTrees(socket, info));
-  socket.on('setBranchName', info => setBranchName(socket, info));
+const getBranchName = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('getBranchName', info);
+  return new Promise(async (resolve, reject) => {
+    let res = await mongoFindOne(socket, 'branches', {_id: info.id});
+    if (res) {
+      emit(socket, 'getBranchName', {id: info.id, name: res.name});
+    }
+  })
 }
+
+const deleteTree = (socket, info) => {
+  const debug = false;
+  if (debug) console.log('deleteTree', info);
+  return new Promise(async (resolve, reject) => {
+    const {treeId, userName} = info;
+    const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+    if (debug) console.log('deleteTree tree', tree);
+
+    // remove treeId from user
+    await mongoUpdate(socket, 'users', {_id: userName}, {$pull : {trees: treeId}})
+
+    const branches = tree.branches;
+    for (let i = 0; i < branches.length; ++i) {
+      // retrieve branch info
+        //foreach leaf delete
+        
+        // delete branch
+        await mongoDeleteOne(socket, 'branches', {_id: branches[i].branchId})
+      }
+
+      // delete tree
+      await mongoDeleteOne(socket, 'trees', {_id: treeId});
+
+      getTrees(socket, info);
+  })
+}
+
 
 /*
  * Create Express HTTPS Service
@@ -378,18 +450,6 @@ const eywaPubClient = createClient({
 });
 const eywaSubClient = eywaPubClient.duplicate();
 
-/*
- * Create socket.io service
- */
-
-const io = socketio(httpsServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-io.adapter(createAdapter(eywaPubClient, eywaSubClient));
-io.on('connection', (socket) => handleSocket(socket));
 
 /*
  * Create MongoDB service
@@ -430,3 +490,27 @@ mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
 .then(res => createDbCollection('leaves'))
 .catch(err => console.log(err));
 
+/*
+ * Create socket.io service
+ */
+
+const handleSocket = socket => {
+  console.log('handleSocket');
+  socket.on('disconnect', () => cleanUpSocket(socket));
+  socket.on('token', token => handleToken(socket, token));
+  socket.on('createTree', info => createTree(socket, info));
+  socket.on('getTrees', (info) => getTrees(socket, info));
+  socket.on('setBranchName', info => setBranchName(socket, info));
+  socket.on('getBranchName', info => getBranchName(socket, info));
+  socket.on('deleteTree', info => deleteTree(socket, info));
+}
+
+
+const io = socketio(httpsServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+io.adapter(createAdapter(eywaPubClient, eywaSubClient));
+io.on('connection', (socket) => handleSocket(socket));
