@@ -9,6 +9,7 @@ const process = require('process');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
+
 require('dotenv').config();
 
 /*
@@ -92,7 +93,7 @@ const handleToken = (socket, token) => {
     const curTime = Date.now();
     const expiration = exp * 1000;
 
-    console.log('compare', curTime, expiration);
+    //console.log('compare', curTime, expiration);
 
     if (curTime >= expiration) {
         
@@ -304,7 +305,7 @@ const createTree = (socket, info) => {
     await addTree(socket, info);
     getTrees(socket, info);
 
-    sendMessage(socket, `Tree ${info.treeName} created.`);
+    //sendMessage(socket, `Tree ${info.treeName} created.`);
     resolve('ok');
 
     return;
@@ -340,11 +341,11 @@ const getTrees = (socket, info) => {
     let trees = [];
     for (let i = 0; i < treeIds.length; ++i) {
       const treeInfo = await findTreeInfo(treeIds[i]);
-      console.log('getTrees treeInfo', treeInfo);
+      if (debug) console.log('getTrees treeInfo', treeInfo);
       trees.push(treeInfo[0]);
     }
     
-    console.log('getTrees trees', trees);
+    if (debug) console.log('getTrees trees', trees);
     emit(socket, 'getTrees', trees);
     resolve('ok');
   })
@@ -360,7 +361,7 @@ const setBranchName = (socket, info) => {
 }
 
 const getBranchName = (socket, info) => {
-  const debug = true;
+  const debug = false;
   if (debug) console.log('getBranchName', info);
   return new Promise(async (resolve, reject) => {
     let res = await mongoFindOne(socket, 'branches', {_id: info.id});
@@ -409,12 +410,40 @@ const setActiveModule = (socket, info) => {
     const leaf = await mongoFindOne(socket, 'leaves', {_id: leafId});
     if (!leaf) await mongoInsertOne(socket, 'leaves', {
       _id: leafId,
+      signed: jwt.sign({leafId, moduleId}, process.env.JWT_SECRET_KEY),
+      module: moduleId,
       info: null
     })
     emit(socket, 'getActiveModule', {moduleId, branchId})
 
     return resolve('ok');
   })
+}
+
+const getLeaf = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('getLeaf', info);
+
+  const {userName, leafId} = info;
+  return new Promise(async (resolve, reject) => {
+    const leaf = await mongoFindOne(socket, 'leaves', {_id: leafId});
+    if (leaf) emit(socket, 'getLeaf', leaf);
+    return resolve('ok');
+  })
+
+}
+
+const updateTree = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('updateTree', info);
+  const { treeId, icon, treeName, treeDesc, userName } = info;
+
+  return new Promise(async (resolve, reject) => {
+    await mongoUpdateOne(socket, 'trees', {_id : treeId}, {$set: {icon, name: treeName, desc: treeDesc}});
+    getTrees(socket, info);
+    resolve('ok');
+  })
+
 }
 
 
@@ -504,6 +533,8 @@ const handleSocket = socket => {
   socket.on('getBranchName', info => getBranchName(socket, info));
   socket.on('deleteTree', info => deleteTree(socket, info));
   socket.on('setActiveModule', info => setActiveModule(socket, info));
+  socket.on('getLeaf', info => getLeaf(socket, info));
+  socket.on('updateTree', info => updateTree(socket, info));
 }
 
 
