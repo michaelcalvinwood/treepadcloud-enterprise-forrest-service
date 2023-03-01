@@ -65,6 +65,7 @@ app.use(cors());
 let window = {};
 window.token = {};
 
+
 const emit = (socket, msg, data) => {
   const debug = true;
   if (debug) console.log('emit', msg, JSON.stringify(data, null, 4));
@@ -245,6 +246,7 @@ const addTree = (socket, info) => {
     branchId = `B-${userName}-${uuidv4()}`;
     await mongoInsertOne(socket, 'branches', {
       _id: branchId,
+      sIndex: 0,
       name: '',
       modules: [],
       activeModule: null
@@ -253,6 +255,7 @@ const addTree = (socket, info) => {
     treeId = `T-${userName}-${uuidv4()}`;
     await mongoInsertOne(socket, 'trees', {
       _id: treeId,
+      sIndex: 0,
       icon,
       name: treeName,
       desc: treeDesc,
@@ -446,6 +449,16 @@ const updateTree = (socket, info) => {
 
 }
 
+/*
+ * Serialized Commands
+ */
+
+window.addBranch = info => {
+  const debug = true;
+  if (debug) console.log('addTree', info);
+
+}
+
 
 /*
  * Create Express HTTPS Service
@@ -520,6 +533,43 @@ mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
 .catch(err => console.log(err));
 
 /*
+ * Command Serialization
+ */
+
+
+async function sleep(milliseconds) {
+  return new Promise((resolve) =>setTimeout(resolve, milliseconds));
+}
+
+const treeCommands = [];
+async function handleTreeCommands () {
+  while(1) {
+    while (treeCommands.length) {
+      const command = treeCommands.pop();
+      console.log('treeCommand', command);
+      const { name, info } = command;
+      console.log('name',name);
+      
+      await window[name](info);
+    }
+    await sleep(250);
+  }
+}
+handleTreeCommands();
+
+const branchCommands = [];
+async function handleBranchCommands () {
+  while(1) {
+    while (branchCommands.length) {
+      const command = branchCommands.pop();
+      const { name, info } = command;
+      await window[name](info);
+    }
+    await sleep(250);
+  }
+}
+
+/*
  * Create socket.io service
  */
 
@@ -535,6 +585,11 @@ const handleSocket = socket => {
   socket.on('setActiveModule', info => setActiveModule(socket, info));
   socket.on('getLeaf', info => getLeaf(socket, info));
   socket.on('updateTree', info => updateTree(socket, info));
+  socket.on('addBranch',  info => { console.log('got addBranch'); treeCommands.push({
+    name: 'addBranch',
+    info: {...info, socket}
+  })}
+  )
 }
 
 
@@ -546,3 +601,4 @@ const io = socketio(httpsServer, {
 });
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
 io.on('connection', (socket) => handleSocket(socket));
+
