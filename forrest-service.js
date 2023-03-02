@@ -250,7 +250,7 @@ const getSIndex = async (socket, collection, _id) => {
   const debug = true;
   if (debug) console.log('getSIndex', collection, _id);
 
-  const result = await mongoFindOne(socket, collection, {_id: _id+'zzz'}, {sIndex: 1});
+  const result = await mongoFindOne(socket, collection, {_id: _id}, {sIndex: 1});
   if (debug) console.log('getSIndex result', result);
 
   return result !== null ? result.sIndex : false;
@@ -491,9 +491,10 @@ window.addBranch = async info => {
   if (debug) console.log('addTree', treeId, branchId, userName);
   const newBranchId = generateBranchId();
   let sIndex = await getSIndex(socket, 'trees', treeId);
-  console.log('sIndex', sIndex);
-  //await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: branchId}, $inc: {sIndex: 1}})
-  //emit(socket, 'addBranch', {treeId, branchId});
+  if (!sIndex) return sendMessage(socket, `Could not get sIndex for addTree: ${treeId} ${branchId} ${userName}`);
+  ++sIndex;
+  await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: newBranchId}, $set: {sIndex: 1}})
+  emit(socket, 'addBranch', {treeId, branchId, newBranchId});
 }
 
 
