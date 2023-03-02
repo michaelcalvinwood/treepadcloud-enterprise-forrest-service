@@ -64,7 +64,12 @@ app.use(cors());
  */
 let window = {};
 window.token = {};
+const treeCommands = [];
+const branchCommands = [];
+const treeIndexes = {};
+const branchIndexes = {};
 
+const isEmptyObject = obj => Object.keys(obj).length === 0;
 
 const emit = (socket, msg, data) => {
   const debug = true;
@@ -192,21 +197,35 @@ const mongoDeleteOne = async (socket, collection, query) => {
   })
 }
 
-const mongoFindOne = async (socket, collection, query) => {
+const mongoFindOne = async (socket, collection, query, projections = {}) => {
   const debug = true;
-  if (debug) console.log('mongoFindOne', collection, query);
+  if (debug) console.log('mongoFindOne', collection, query, projections);
   return new Promise(async (resolve, reject) => {
-    await mongoDbO.collection(collection).findOne(query)
-    .then (res => {
-      resolve(res);
-      return res;
-    })
-    .catch(err => {
-        console.error(err);
-        sendMessage(socket, 'mongoUpdateOne: ' + err.err);
-        resolve(false);
-        return false;
-    })
+    if (isEmptyObject(projections)) {
+      await mongoDbO.collection(collection).findOne(query)
+      .then (res => {
+        resolve(res);
+        return res;
+      })
+      .catch(err => {
+          console.error(err);
+          sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+          resolve(false);
+          return false;
+      })
+    } else {
+      await mongoDbO.collection(collection).findOne(query, {projection: projections})
+      .then (res => {
+        resolve(res);
+        return res;
+      })
+      .catch(err => {
+          console.error(err);
+          sendMessage(socket, 'mongoUpdateOne: ' + err.err);
+          resolve(false);
+          return false;
+      })
+    }
   })
 }
 
@@ -227,6 +246,18 @@ const mongoPush = (socket, collection, documentId, arrayName, element) => {
   })
 }
 
+const getSIndex = async (socket, collection, _id) => {
+  const debug = true;
+  if (debug) console.log('getSIndex', collection, _id);
+
+  const result = await mongoFindOne(socket, collection, {_id: _id+'zzz'}, {sIndex: 1});
+  if (debug) console.log('getSIndex result', result);
+
+  return result !== null ? result.sIndex : false;
+}
+
+const generateBranchId = userName => `B-${userName}-${uuidv4()}`;
+
 const createUser = (socket, userName) => {
   return new Promise (async (resolve, reject) => {
     await mongoInsertOne(socket, 'users', {
@@ -243,7 +274,7 @@ const addTree = (socket, info) => {
   const { userName, treeName, treeDesc, icon } = info;
 
   return new Promise(async (resolve, reject) => {
-    branchId = `B-${userName}-${uuidv4()}`;
+    branchId = generateBranchId();
     await mongoInsertOne(socket, 'branches', {
       _id: branchId,
       sIndex: 0,
@@ -253,6 +284,7 @@ const addTree = (socket, info) => {
     })
    
     treeId = `T-${userName}-${uuidv4()}`;
+    treeIndexes[treeId] = 0;
     await mongoInsertOne(socket, 'trees', {
       _id: treeId,
       sIndex: 0,
@@ -453,10 +485,15 @@ const updateTree = (socket, info) => {
  * Serialized Commands
  */
 
-window.addBranch = info => {
+window.addBranch = async info => {
   const debug = true;
-  if (debug) console.log('addTree', info);
-
+  const { treeId, branchId, userName, socket } = info;
+  if (debug) console.log('addTree', treeId, branchId, userName);
+  const newBranchId = generateBranchId();
+  let sIndex = await getSIndex(socket, 'trees', treeId);
+  console.log('sIndex', sIndex);
+  //await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: branchId}, $inc: {sIndex: 1}})
+  //emit(socket, 'addBranch', {treeId, branchId});
 }
 
 
@@ -541,7 +578,6 @@ async function sleep(milliseconds) {
   return new Promise((resolve) =>setTimeout(resolve, milliseconds));
 }
 
-const treeCommands = [];
 async function handleTreeCommands () {
   while(1) {
     while (treeCommands.length) {
@@ -557,7 +593,6 @@ async function handleTreeCommands () {
 }
 handleTreeCommands();
 
-const branchCommands = [];
 async function handleBranchCommands () {
   while(1) {
     while (branchCommands.length) {
