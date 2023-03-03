@@ -268,20 +268,26 @@ const createUser = (socket, userName) => {
   })
 }
 
+const createBranch = async (socket, userName) => {
+  branchId = generateBranchId(userName);
+  await mongoInsertOne(socket, 'branches', {
+    _id: branchId,
+    sIndex: 0,
+    name: '',
+    modules: [],
+    activeModule: null
+  })
+
+  return branchId;
+}
+
 const addTree = (socket, info) => {
   const debug = true;
   if (debug) console.log('addTree', info);
   const { userName, treeName, treeDesc, icon } = info;
 
   return new Promise(async (resolve, reject) => {
-    branchId = generateBranchId();
-    await mongoInsertOne(socket, 'branches', {
-      _id: branchId,
-      sIndex: 0,
-      name: '',
-      modules: [],
-      activeModule: null
-    })
+    const branchId = await createBranch(socket, userName);
    
     treeId = `T-${userName}-${uuidv4()}`;
     treeIndexes[treeId] = 0;
@@ -489,12 +495,19 @@ window.addBranch = async info => {
   const debug = true;
   const { treeId, branchId, userName, socket } = info;
   if (debug) console.log('addTree', treeId, branchId, userName);
-  const newBranchId = generateBranchId();
-  let sIndex = await getSIndex(socket, 'trees', treeId);
-  if (!sIndex) return sendMessage(socket, `Could not get sIndex for addTree: ${treeId} ${branchId} ${userName}`);
+  const newBranchId = await createBranch(socket, userName);
+  const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+  if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in addBranch`);
+  if (debug) console.log('addBranch tree', tree);
+  let sIndex = tree.sIndex;
+  const branch = tree.branches.find(branch => branch.branchId === branchId);
+  if (!branch) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId} in addBranch`);  
+  const level = branch.level;
+  if (debug) console.log('addBranch sIndex branch', sIndex, branch);
+  const newBranch = {branchId: newBranchId, level}
   ++sIndex;
-  await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: newBranchId}, $set: {sIndex: 1}})
-  emit(socket, 'addBranch', {treeId, branchId, newBranchId});
+  await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: newBranch}, $set: {sIndex: sIndex}})
+  emit(socket, 'addBranch', {treeId, branchId, newBranch});
 }
 
 
