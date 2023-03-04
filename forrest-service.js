@@ -515,6 +515,18 @@ window.addBranch = async info => {
   emit(socket, 'addBranch', {treeId, branchId, newBranch});
 }
 
+window.deleteBranch = async info => {
+  const debug = true;
+  const { treeId, branchId, userName, socket } = info;
+
+  // IMPORTANT TODO: GET ALL BRANCHES AND FIND ALL CHILDREN AND DELETE ALL CHILDREN WHEN HIERARCHY EXISTS
+
+  // IMPORTANT TODO: REMOVE ALL DATA FROM MODULES AND REMOVE MODULES FROM BRANCH AND CHILDREN 
+
+  await mongoDeleteOne(socket, 'branches', {_id: branchId});
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$pull: {branches: {branchId}}})
+  emit (socket, 'deleteBranch', {treeId, branchId});
+}
 
 /*
  * Create Express HTTPS Service
@@ -642,8 +654,12 @@ const handleSocket = socket => {
   socket.on('addBranch',  info => { console.log('got addBranch'); treeCommands.push({
     name: 'addBranch',
     info: {...info, socket}
-  })}
-  )
+  })})
+  socket.on('deleteBranch',  info => { console.log('got deleteBranch'); treeCommands.push({
+    name: 'deleteBranch',
+    info: {...info, socket}
+  })})
+  
 }
 
 
