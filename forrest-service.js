@@ -492,21 +492,26 @@ const updateTree = (socket, info) => {
  */
 
 window.addBranch = async info => {
-  const debug = true;
+  const debug = false;
   const { treeId, branchId, userName, socket } = info;
-  if (debug) console.log('addTree', treeId, branchId, userName);
+  
+  if (debug) console.log('addBranch', treeId, branchId, userName);
+  
   const newBranchId = await createBranch(socket, userName);
   const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
   if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in addBranch`);
   if (debug) console.log('addBranch tree', tree);
-  let sIndex = tree.sIndex;
-  const branch = tree.branches.find(branch => branch.branchId === branchId);
-  if (!branch) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId} in addBranch`);  
-  const level = branch.level;
-  if (debug) console.log('addBranch sIndex branch', sIndex, branch);
+  let { sIndex, branches } = tree;
+  const index = branches.findIndex(branch => branch.branchId === branchId);
+  console.log('addTree index', index);
+  if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId} in addBranch`);  
+  const level = branches[index].level;
+  if (debug) console.log('addBranch sIndex branch', sIndex, branches[index]);
   const newBranch = {branchId: newBranchId, level}
+  branches.splice(index+1, 0, newBranch);
+  console.log('addBranch branches after splice', branches);
   ++sIndex;
-  await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$push: {branches: newBranch}, $set: {sIndex: sIndex}})
+  await mongoUpdateOne(socket, 'trees', { _id: treeId}, {$set: {branches, sIndex}})
   emit(socket, 'addBranch', {treeId, branchId, newBranch});
 }
 
