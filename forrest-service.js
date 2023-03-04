@@ -546,8 +546,30 @@ window.moveBranchUp = async info => {
 
   const branch = branches.splice(index, 1)[0];
   branches.splice(index-1, 0, branch);
-  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches}})
-  emit (socket, 'moveBranchUp', {treeId, branchId});
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
+  emit (socket, 'moveBranchUp', {treeId, branchId, sIndex});
+}
+
+window.moveBranchDown = async info => {
+  const debug = true;
+  const { treeId, branchId, userName, socket } = info;
+
+  // IMPORTANT TODO: GET ALL BRANCHES AND FIND ALL CHILDREN AND DELETE ALL CHILDREN WHEN HIERARCHY EXISTS
+
+  // IMPORTANT TODO: REMOVE ALL DATA FROM MODULES AND REMOVE MODULES FROM BRANCH AND CHILDREN 
+  const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+  if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in addBranch`);
+  if (debug) console.log('moveBranchDown tree', tree);
+  let { sIndex, branches } = tree;
+  ++sIndex;
+  const index = branches.findIndex(branch => branch.branchId === branchId);
+  if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId}`);
+  if (index >= branches.length) return sendMessage(socket, 'Cannot move the bottom-most branch down');
+
+  const branch = branches.splice(index, 1)[0];
+  branches.splice(index+1, 0, branch);
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
+  emit (socket, 'moveBranchDown', {treeId, branchId, sIndex});
 }
 
 /*
@@ -688,6 +710,12 @@ const handleSocket = socket => {
     name: 'moveBranchUp',
     info: {...info, socket}
   })})
+
+  socket.on('moveBranchDown',  info => { console.log('got moveBranchDown'); treeCommands.push({
+    name: 'moveBranchDown',
+    info: {...info, socket}
+  })})
+
 
 }
 
