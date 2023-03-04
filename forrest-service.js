@@ -528,6 +528,28 @@ window.deleteBranch = async info => {
   emit (socket, 'deleteBranch', {treeId, branchId});
 }
 
+window.moveBranchUp = async info => {
+  const debug = true;
+  const { treeId, branchId, userName, socket } = info;
+
+  // IMPORTANT TODO: GET ALL BRANCHES AND FIND ALL CHILDREN AND DELETE ALL CHILDREN WHEN HIERARCHY EXISTS
+
+  // IMPORTANT TODO: REMOVE ALL DATA FROM MODULES AND REMOVE MODULES FROM BRANCH AND CHILDREN 
+  const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+  if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in addBranch`);
+  if (debug) console.log('moveBranchUp tree', tree);
+  let { sIndex, branches } = tree;
+  ++sIndex;
+  const index = branches.findIndex(branch => branch.branchId === branchId);
+  if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId}`);
+  if (index === 0) return sendMessage(socket, 'Cannot move the topmost branch up');
+
+  const branch = branches.splice(index, 1)[0];
+  branches.splice(index-1, 0, branch);
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches}})
+  emit (socket, 'moveBranchUp', {treeId, branchId});
+}
+
 /*
  * Create Express HTTPS Service
  */
@@ -651,15 +673,22 @@ const handleSocket = socket => {
   socket.on('setActiveModule', info => setActiveModule(socket, info));
   socket.on('getLeaf', info => getLeaf(socket, info));
   socket.on('updateTree', info => updateTree(socket, info));
+
   socket.on('addBranch',  info => { console.log('got addBranch'); treeCommands.push({
     name: 'addBranch',
     info: {...info, socket}
   })})
+  
   socket.on('deleteBranch',  info => { console.log('got deleteBranch'); treeCommands.push({
     name: 'deleteBranch',
     info: {...info, socket}
   })})
-  
+
+  socket.on('moveBranchUp',  info => { console.log('got moveBranchUp'); treeCommands.push({
+    name: 'moveBranchUp',
+    info: {...info, socket}
+  })})
+
 }
 
 
