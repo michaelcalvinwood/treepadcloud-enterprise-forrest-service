@@ -398,6 +398,7 @@ const setBranchName = (socket, info) => {
 
   return new Promise(async (resolve, reject) => {
     await mongoUpdateOne(socket, 'branches', {_id: info.id}, {$set: {name: info.name}})
+    emit(socket, 'setBranchName', 'setBranchName', {branchId: info.id, branchName: info.name});
   })
 }
 
@@ -407,7 +408,7 @@ const getBranchName = (socket, info) => {
   return new Promise(async (resolve, reject) => {
     let res = await mongoFindOne(socket, 'branches', {_id: info.id});
     if (res) {
-      emit(socket, 'getBranchName', {id: info.id, name: res.name});
+      emit(socket, 'setBranchName', {branchId: info.id, branchName: res.name});
     }
   })
 }
