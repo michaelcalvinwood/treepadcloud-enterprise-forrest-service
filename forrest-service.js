@@ -588,6 +588,27 @@ window.moveBranchDown = async info => {
   emit (socket, 'moveBranchDown', {treeId, branchId, sIndex});
 }
 
+window.moveBranchDown = async info => {
+  const debug = true;
+  const { treeId, branchId, userName, socket } = info;
+
+  const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+  if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in moveBranchRight`);
+  if (debug) console.log('moveBranchRighttree', tree);
+  let { sIndex, branches } = tree;
+  ++sIndex;
+  const index = branches.findIndex(branch => branch.branchId === branchId);
+  if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId}`);
+  if (index === 0) return sendMessage(socket, `Cannot indent highest branch`);
+  if (branches[index].level > branches[index-1].level) return sendMessage(`Branch is already indented`);
+  if (index >= 5) return sendMessage(socket, 'Cannot indent branches beyond five levels');
+
+  ++branches[index].level;
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
+  emit (socket, 'moveBranchRight', {treeId, branchId, sIndex});
+}
+
+
 /*
  * Create Express HTTPS Service
  */
@@ -733,6 +754,10 @@ const handleSocket = socket => {
     info: {...info, socket}
   })})
 
+  socket.on('moveBranchRight',  info => { console.log('got moveBranchRight'); treeCommands.push({
+    name: 'moveBranchRight',
+    info: {...info, socket}
+  })})
 
 }
 
