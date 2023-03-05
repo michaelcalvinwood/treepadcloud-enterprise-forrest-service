@@ -441,12 +441,12 @@ const deleteTree = (socket, info) => {
 
 const setActiveModule = (socket, info) => {
   const debug = true;
-  console.log('setActiveModule', info);
+  if (debug) console.log('setActiveModule', info);
   const { userName, moduleId, branchId } = info;
   const leafId = 'L' + branchId + '-' + moduleId;
 
   return new Promise(async (resolve, reject) => {
-    await mongoUpdateOne(socket, 'branches', {_id: branchId}, {$addToSet: { modules: moduleId}, $set: {activeModule: leafId}});
+    await mongoUpdateOne(socket, 'branches', {_id: branchId}, {$addToSet: { modules: moduleId}, $set: {activeModule: moduleId}});
 
     const leaf = await mongoFindOne(socket, 'leaves', {_id: leafId});
     if (!leaf) await mongoInsertOne(socket, 'leaves', {
@@ -455,10 +455,25 @@ const setActiveModule = (socket, info) => {
       module: moduleId,
       info: null
     })
-    emit(socket, 'getActiveModule', {moduleId, branchId})
+    emit(socket, 'ActiveModule', {moduleId, branchId})
 
     return resolve('ok');
   })
+}
+
+const getActiveModule = (socket, info) => {
+  const debug = true;
+  if (debug) console.log('getActiveModule', info);
+  const { userName, branchId } = info;
+
+  return new Promise(async (resolve, reject) => {
+    const branch = await mongoFindOne(socket, 'branches', {_id: branchId});
+    if (debug) console.log('getActiveModule branch', branch);
+    emit(socket, 'ActiveModule', {moduleId: branch.activeModule, branchId})
+    resolve('ok');
+  })
+
+  
 }
 
 const getLeaf = (socket, info) => {
@@ -693,6 +708,7 @@ const handleSocket = socket => {
   socket.on('getBranchName', info => getBranchName(socket, info));
   socket.on('deleteTree', info => deleteTree(socket, info));
   socket.on('setActiveModule', info => setActiveModule(socket, info));
+  socket.on('getActiveModule', info => getActiveModule(socket, info));
   socket.on('getLeaf', info => getLeaf(socket, info));
   socket.on('updateTree', info => updateTree(socket, info));
 
