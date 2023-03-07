@@ -503,6 +503,10 @@ const updateTree = (socket, info) => {
 
 }
 
+/*
+* Branch utility functions
+*/
+
 const prevSiblingIndex = (branches, index) => {
   if (index <= 0) return false;
   if (index >= branches.length) return false;
@@ -513,6 +517,16 @@ const prevSiblingIndex = (branches, index) => {
   }
 
   return false;
+}
+
+const numChildren = (branches, index) => {
+  if (index === branches.length - 1) return 0;
+  const level = branches[index].level;
+  let count = 0;
+  for (let i = index + 1; i < branches.length; ++i) {
+    if (branches[i].level > level) ++count;
+    else return count;
+  }
 }
 
 /*
@@ -636,6 +650,7 @@ window.moveBranchLeft = async info => {
   
   --branches[index].level;
   const prevSibling = prevSiblingIndex(branches, index);
+  
   if (!prevSibling === index - 1) {
     let removed = branches.splice(index, 1)[0];
     branches.splice(prevSibling + 1, 0, removed)
