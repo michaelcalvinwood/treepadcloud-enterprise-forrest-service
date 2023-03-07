@@ -650,10 +650,11 @@ window.moveBranchLeft = async info => {
   
   --branches[index].level;
   const prevSibling = prevSiblingIndex(branches, index);
+  const prevSiblingChildren = numChildren(branches, prevSibling);
   
   if (!prevSibling === index - 1) {
     let removed = branches.splice(index, 1)[0];
-    branches.splice(prevSibling + 1, 0, removed)
+    branches.splice(prevSibling + prevSiblingChildren + 1, 0, removed)
   }
 
   await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
