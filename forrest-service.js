@@ -503,6 +503,18 @@ const updateTree = (socket, info) => {
 
 }
 
+const prevSiblingIndex = (branches, index) => {
+  if (index <= 0) return false;
+  if (index >= branches.length) return false;
+
+  const level = branches[index].level;
+  for (let i = index - 1; i >= 0; --i) {
+    if (branches[i].level === level) return i;
+  }
+
+  return false;
+}
+
 /*
  * Serialized Commands
  */
@@ -588,26 +600,50 @@ window.moveBranchDown = async info => {
   emit (socket, 'moveBranchDown', {treeId, branchId, sIndex});
 }
 
-window.moveBranchDown = async info => {
+window.moveBranchRight = async info => {
   const debug = true;
   const { treeId, branchId, userName, socket } = info;
 
   const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
   if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in moveBranchRight`);
-  if (debug) console.log('moveBranchRighttree', tree);
+  if (debug) console.log('moveBranchRight tree', tree);
   let { sIndex, branches } = tree;
   ++sIndex;
   const index = branches.findIndex(branch => branch.branchId === branchId);
   if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId}`);
   if (index === 0) return sendMessage(socket, `Cannot indent highest branch`);
   if (branches[index].level > branches[index-1].level) return sendMessage(`Branch is already indented`);
-  if (index >= 5) return sendMessage(socket, 'Cannot indent branches beyond five levels');
+  if (branches[index].level >= 5) return sendMessage(socket, 'Cannot indent branches beyond five levels');
 
   ++branches[index].level;
   await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
   emit (socket, 'moveBranchRight', {treeId, branchId, sIndex});
 }
 
+window.moveBranchLeft = async info => {
+  const debug = true;
+  const { treeId, branchId, userName, socket } = info;
+
+  const tree = await mongoFindOne(socket, 'trees', {_id: treeId});
+  if (tree === null) return sendMessage(socket, `Could not find tree ${treeId} in moveBranchRight`);
+  if (debug) console.log('moveBranchLeft tree', tree);
+  let { sIndex, branches } = tree;
+  ++sIndex;
+  const index = branches.findIndex(branch => branch.branchId === branchId);
+  if (index === -1) return sendMessage(socket, `Could not find branch ${branchId} in tree ${treeId}`);
+  if (index === 0) return sendMessage(socket, `Cannot outdent highest branch`);
+  if (branches[index].level === branches[index-1].level) return sendMessage(`Branch is already outdented`);
+  
+  --branches[index].level;
+  const prevSibling = prevSiblingIndex(branches, index);
+  if (!prevSibling === index - 1) {
+    let removed = branches.splice(index, 1)[0];
+    branches.splice(prevSibling + 1, 0, removed)
+  }
+
+  await mongoUpdateOne(socket, 'trees', {_id: treeId}, {$set: {branches, sIndex}})
+  emit (socket, 'moveBranchLeft', {treeId, branchId, sIndex});
+}
 
 /*
  * Create Express HTTPS Service
@@ -739,26 +775,38 @@ const handleSocket = socket => {
     info: {...info, socket}
   })})
   
-  socket.on('deleteBranch',  info => { console.log('got deleteBranch'); treeCommands.push({
+  socket.on('deleteBranch',  info => {treeCommands.push({
     name: 'deleteBranch',
     info: {...info, socket}
   })})
 
-  socket.on('moveBranchUp',  info => { console.log('got moveBranchUp'); treeCommands.push({
-    name: 'moveBranchUp',
-    info: {...info, socket}
-  })})
+  socket.on('moveBranchUp',  info => {
+    treeCommands.push({
+      name: 'moveBranchUp',
+      info: {...info, socket}
+    })
+  })
 
-  socket.on('moveBranchDown',  info => { console.log('got moveBranchDown'); treeCommands.push({
-    name: 'moveBranchDown',
-    info: {...info, socket}
-  })})
+  socket.on('moveBranchDown',  info => {
+    treeCommands.push({
+      name: 'moveBranchDown',
+      info: {...info, socket}
+    })
+  })
 
-  socket.on('moveBranchRight',  info => { console.log('got moveBranchRight'); treeCommands.push({
-    name: 'moveBranchRight',
-    info: {...info, socket}
-  })})
+  socket.on('moveBranchRight',  info => {
+    treeCommands.push({
+      name: 'moveBranchRight',
+      info: {...info, socket}
+    })
+  })
 
+  socket.on('moveBranchLeft',  info => {
+    treeCommands.push({
+      name: 'moveBranchLeft',
+      info: {...info, socket}
+    })
+  })
 }
 
 
