@@ -14,8 +14,6 @@ require('dotenv').config();
  * Import Utilities
  */
 
-const mongo = require('./utils/mongodb');
-
 const connection = require('./utils/socket');
 console.log(connection);
 
@@ -53,6 +51,50 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require("bcrypt");
 
 /*
+ * MongoDB requirements
+ */
+const mongo = require('mongodb');
+
+/*
+ * Create MongoDB service
+ */
+
+const mongoUrl = 'mongodb://127.0.0.1:27017/';
+const mongoClient = mongo.MongoClient;
+let mongoDb = null;
+let mongoDbO = null;
+
+const createDbCollection = name => {
+  return new Promise((resolve, reject) => {
+   
+    mongoDbO.createCollection(name)
+    .then(res => {
+      console.log(`created collection ${name}`);
+      return resolve('ok');
+    })
+    .catch(err => {
+      console.log(`collection ${name} already exists`);
+      return resolve('ok');
+    })
+  })
+}
+
+mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
+    useNewUrlParser: true, 
+    useUnifiedTopology: true
+})
+.then(db => {
+  console.log('Mongo DB is connected')
+  mongoDb = db;
+  mongoDbO = mongoDb.db('treepadcloud_forrest');
+  return createDbCollection('users')
+})
+.then(res => createDbCollection('trees'))
+.then(res => createDbCollection('branches'))
+.then(res => createDbCollection('leaves'))
+.catch(err => console.log(err));
+
+/*
  * Configure express https service
  */
 const app = express();
@@ -88,6 +130,8 @@ const httpsServer = https.createServer({
  * https://github.com/redis/node-redis/blob/master/docs/client-configuration.md
  */
 
+
+
 const eywaPubClient = createClient({
   socket: {
     host: 'eywa.treepadcloud.com',
@@ -96,12 +140,14 @@ const eywaPubClient = createClient({
   password: EywaPassword
 });
 const eywaSubClient = eywaPubClient.duplicate();
+eywaPubClient.connect();  // <------
+eywaSubClient.connect();  // <------
 
 /*
  * Create socket.io service
  */
 
-const io = socketio(httpsServer, {
+io = socketio(httpsServer, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
@@ -109,4 +155,10 @@ const io = socketio(httpsServer, {
 });
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
 io.on('connection', (socket) => connection.handleConnection(socket));
+
+const treeCommands = require('./utils/treeCommands');
+
+treeCommands.setIo(io);
+
+
 

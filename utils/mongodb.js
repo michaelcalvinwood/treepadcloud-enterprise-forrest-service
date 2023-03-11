@@ -1,48 +1,4 @@
 
-/*
- * MongoDB requirements
- */
-const mongo = require('mongodb');
-
-/*
- * Create MongoDB service
- */
-
-const mongoUrl = 'mongodb://127.0.0.1:27017/';
-const mongoClient = mongo.MongoClient;
-let mongoDb = null;
-let mongoDbO = null;
-
-const createDbCollection = name => {
-  return new Promise((resolve, reject) => {
-   
-    mongoDbO.createCollection(name)
-    .then(res => {
-      console.log(`created collection ${name}`);
-      return resolve('ok');
-    })
-    .catch(err => {
-      console.log(`collection ${name} already exists`);
-      return resolve('ok');
-    })
-  })
-}
-
-mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
-    useNewUrlParser: true, 
-    useUnifiedTopology: true
-})
-.then(db => {
-  console.log('Mongo DB is connected')
-  mongoDb = db;
-  mongoDbO = mongoDb.db('treepadcloud_forrest');
-  return createDbCollection('users')
-})
-.then(res => createDbCollection('trees'))
-.then(res => createDbCollection('branches'))
-.then(res => createDbCollection('leaves'))
-.catch(err => console.log(err));
-
 
 const mongoInsertOne = (socket, collection, document) => {
     const debug = true;
