@@ -1,3 +1,5 @@
+const treeCommands = require('./utils/treeCommands');
+
 const httpsPort = 6102;
 const privateKeyPath = '/home/keys/treepadcloud.com.key';
 const fullchainPath = '/home/keys/treepadcloud.com.pem';
@@ -79,14 +81,21 @@ const createDbCollection = name => {
   })
 }
 
+
+
 mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
     useNewUrlParser: true, 
     useUnifiedTopology: true
 })
 .then(db => {
   console.log('Mongo DB is connected')
+  
   mongoDb = db;
   mongoDbO = mongoDb.db('treepadcloud_forrest');
+  
+  treeCommands.setMongoDb(mongoDb);
+  treeCommands.setMongoDbO(mongoDbO);
+
   return createDbCollection('users')
 })
 .then(res => createDbCollection('trees'))
@@ -156,9 +165,10 @@ io = socketio(httpsServer, {
 io.adapter(createAdapter(eywaPubClient, eywaSubClient));
 io.on('connection', (socket) => connection.handleConnection(socket));
 
-const treeCommands = require('./utils/treeCommands');
+
 
 treeCommands.setIo(io);
+treeCommands.setMo
 
 
 
