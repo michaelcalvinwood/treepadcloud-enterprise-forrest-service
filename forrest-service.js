@@ -11,10 +11,12 @@ const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 /*
- * Import libraries
+ * Import Utilities
  */
 
-const connection = require('./libs/socket');
+const mongo = require('./utils/mongodb');
+
+const connection = require('./utils/socket');
 console.log(connection);
 
 /*
@@ -37,11 +39,6 @@ const cors = require('cors');
  */
 
 const { createClient } = require("redis");
-
-/*
- * MongoDB requirements
- */
-const mongo = require('mongodb');
 
 /*
  * Socket.io requirements
@@ -99,46 +96,6 @@ const eywaPubClient = createClient({
   password: EywaPassword
 });
 const eywaSubClient = eywaPubClient.duplicate();
-
-
-/*
- * Create MongoDB service
- */
-
-const mongoUrl = 'mongodb://127.0.0.1:27017/';
-const mongoClient = mongo.MongoClient;
-let mongoDb = null;
-let mongoDbO = null;
-
-const createDbCollection = name => {
-  return new Promise((resolve, reject) => {
-   
-    mongoDbO.createCollection(name)
-    .then(res => {
-      console.log(`created collection ${name}`);
-      return resolve('ok');
-    })
-    .catch(err => {
-      console.log(`collection ${name} already exists`);
-      return resolve('ok');
-    })
-  })
-}
-
-mongoClient.connect('mongodb://127.0.0.1:27017/treepadcloud_forrest',{
-    useNewUrlParser: true, 
-    useUnifiedTopology: true
-})
-.then(db => {
-  console.log('Mongo DB is connected')
-  mongoDb = db;
-  mongoDbO = mongoDb.db('treepadcloud_forrest');
-  return createDbCollection('users')
-})
-.then(res => createDbCollection('trees'))
-.then(res => createDbCollection('branches'))
-.then(res => createDbCollection('leaves'))
-.catch(err => console.log(err));
 
 /*
  * Create socket.io service
