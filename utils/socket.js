@@ -5,9 +5,12 @@ const tree = require('./treeCommands')
 const subscribe = (socket, resource, token) => {
     console.log('subscribe event');
     return new Promise((resolve, reject) => {
+        socket.treePad = {};
+        socket.treePad.token = token;
+        socket.treePad.resource = resource;
         socket.join(resource);
         socket.emit('subscribe', 'success');
-        tree.treeCommands.push({command: 'getTrees', data: {socket, resource, token}});
+        tree.treeCommands.push({command: 'getTrees', data: {socket, resource}});
         resolve('ok');
     })
 }
