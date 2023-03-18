@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const branchUtils = require('./branch-utils');
 const mongo = require('mongodb');
 
 /*
@@ -88,7 +89,7 @@ const addTree = async (info) => {
     desc: treeDesc,
     branches: [
         {
-        branchId,
+        _id: branchId,
         level: 0
         }
     ]
@@ -177,9 +178,19 @@ w.deleteTree = async ({treeId, socket}) => {
 
         socket.emit('deleteTree', treeId);
     } catch (e) {
-        console.error('ERROR: TreeCommands w.deleteTree: ', e.message);
+        console.error('ERROR: TreeCommands w.deleteTree: ', e.message, e);
     }
 
+}
+
+w.addBranch = async ({treeId, siblingId, socket}) => {
+    try {
+        const debug = true;
+        if (debug) console.log('addBranch', treeId, siblingId);
+        
+    } catch (e) {
+        console.error ('ERROR: treeCommands w.addTree : ', e.message, e);
+    }
 }
 
 const doTreeCommands = async () => {

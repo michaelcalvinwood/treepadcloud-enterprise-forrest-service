@@ -19,6 +19,7 @@ const handleSocketEvents = socket => {
     socket.on('subscribe', ({resource, token}) => subscribe(socket, resource, token));
     socket.on('createTree', data => tree.treeCommands.push({command: 'createTree', data: {...data, socket}}));
     socket.on('deleteTree', treeId => tree.treeCommands.push({command: 'deleteTree', data: {treeId, socket}}));
+    socket.on('addBranch', ({treeId, siblingId}) => tree.treeCommands.push({command: 'addBranch', data: {treeId, siblingId, socket}}));
 }
 
 exports.handleConnection = socket => {
