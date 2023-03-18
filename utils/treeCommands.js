@@ -38,7 +38,7 @@ const w = {};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const extractUsername = userResource => userResource.split('--')[1];
 const generateTreeId = (userName) => `T--${userName}--${uuidv4()}`;
-const generateBranchId = (userName, treeId) => `B--${userName}--${treeId}--${uuidv4()}`;
+const generateBranchId = (userName, treeId) => `B--${uuidv4()}--${treeId}}`;
 
 const addUser = async (userName) => {
     try {
@@ -140,6 +140,45 @@ w.createTree = async (info) => {
     console.log('new Tree', tree);
     socket.emit('addTrees', {resource, trees: [tree]});
     return;
+}
+
+w.deleteTree = async ({treeId, socket}) => {
+    try {
+        const debug = true;
+        if (debug) console.log('deleteTree', treeId);
+    
+        const parts = treeId.split('--');
+        const user = parts[1];
+    
+        if (debug) console.log('deleteTree user', user);
+
+        const branches = await mongoDbO.collection('trees').findOne({_id: treeId});
+    
+        if (debug) console.log('deleteTree branches', branches);
+    
+        if (branches) {
+            for (let i = 0; i < branches.length; ++i) {
+                // TODO get all leaves on each branch and delete them (including all data associated with them)
+                
+                await mongoDbO.collection('branches').deleteOne({_id: branches[i]._id});
+            }
+        }
+    
+        await mongoDbO.collection('trees').deleteOne({_id: treeId});
+        
+        let { trees } = await mongoDbO.collection('users').findOne({_id: user});
+
+        if (debug) console.log('deleteTree trees', trees);
+
+        if (trees) {
+            trees = trees.filter(tree => tree._id !== treeId);
+            await mongoDbO.collection('users').updateOne({_id: user}, {$set: {trees}});
+        }
+
+        socket.emit('deleteTree', treeId);
+    } catch (e) {
+        console.error('ERROR: TreeCommands w.deleteTree: ', e.message);
+    }
 
 }
 
