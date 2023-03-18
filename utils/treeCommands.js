@@ -94,7 +94,7 @@ const addTree = async (info) => {
     })
     
     await mongoDbO.collection('users').updateOne({_id: userName}, {$push: {trees: treeId}});
-    return;
+    return treeId;
 }
 
 /*
@@ -126,17 +126,19 @@ w.createTree = async (info) => {
     const debug = true;
     if (debug) console.log('createTree', info);
     
-    const { icon, treeName, treeDesc, userName } = info;
-  
+    const { resource, icon, treeName, treeDesc, userName, socket } = info;
     
-      // check to see if the user already has a tree by that name
-      const user = await mongoDbO.collection('users').findOne({_id: userName});
-      if (debug) console.log('createTree user', user);
-      if (!user) await addUser(userName);
-  
-      await addTree(info);
-     
-      return;
+    // check to see if the user already has a tree by that name
+    const user = await mongoDbO.collection('users').findOne({_id: userName});
+    if (debug) console.log('createTree user', user);
+    if (!user) await addUser(userName);
+
+    const treeId = await addTree(info);
+    
+    const tree = await mongoDbO.collection('trees').findOne({_id: treeId});
+    console.log('new Tree', tree);
+    socket.emit('addTrees', {resource, trees: [tree]});
+    return;
 
 }
 
