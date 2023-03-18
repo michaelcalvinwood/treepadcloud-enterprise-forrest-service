@@ -61,6 +61,7 @@ const addBranch = async (userName, treeId) => {
           sIndex: 0,
           name: '',
           modules: [],
+          userName,
           activeModule: null
         });
     } catch (e) {
