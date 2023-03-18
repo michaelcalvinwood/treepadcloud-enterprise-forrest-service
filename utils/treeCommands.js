@@ -187,6 +187,22 @@ w.addBranch = async ({treeId, siblingId, socket}) => {
     try {
         const debug = true;
         if (debug) console.log('addBranch', treeId, siblingId);
+        const tree = await mongoDbO.collection('trees').findOne({_id: treeId});
+        if (!tree) return;
+        
+        let { branches } = tree;
+        if (!branches) return;
+
+        const newBranchId = await addBranch(treeId.split('--')[1], treeId);
+        const newBranch = await mongoDbO.collection('branches').findOne({_id: newBranchId});
+
+        branchUtils.insertBranch(newBranch, siblingId, branches);
+        branches = branches.map(branch => ({_id: branch._id, level: branch.level}));
+        
+        await mongoDbO.collection('trees').updateOne({_id: treeId}, {$set: {branches}});
+
+        socket.emit('setBranches', {treeId, branches});
+
         
     } catch (e) {
         console.error ('ERROR: treeCommands w.addTree : ', e.message, e);
