@@ -218,6 +218,15 @@ w.updateBranchName = async ({branchId, branchName, socket}) => {
     }
 }
 
+w.getBranchName = async ({branchId, socket}) => {
+    try {
+        const branch = await mongoDbO.collection('branches').findOne({_id: branchId});
+        if (branch) socket.emit('updateBranchName', {branchId, branchName: branch.name});
+    } catch (e) {
+        console.error ('ERROR: treeCommands w.getBranchName : ', e.message, e);
+    }
+}
+
 const doTreeCommands = async () => {
 
     while (1) {
