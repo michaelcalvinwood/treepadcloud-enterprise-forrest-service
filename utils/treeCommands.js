@@ -209,6 +209,15 @@ w.addBranch = async ({treeId, siblingId, socket}) => {
     }
 }
 
+w.updateBranchName = async ({branchId, branchName, socket}) => {
+    try {
+        await mongoDbO.collection('branches').updateOne({_id: branchId}, {$set: {name: branchName}});
+        socket.emit('updateBranchName', {branchId, branchName});
+    } catch (e) {
+        console.error ('ERROR: treeCommands w.updateBranchName : ', e.message, e);
+    }
+}
+
 const doTreeCommands = async () => {
 
     while (1) {
