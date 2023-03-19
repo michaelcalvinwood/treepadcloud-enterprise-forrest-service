@@ -74,7 +74,7 @@ const addBranch = async (userName, treeId) => {
 }
 
 const addTree = async (info) => {
-    const debug = true;
+    const debug = false;
     if (debug) console.log('addTree', info);
     const { userName, treeName, treeDesc, icon } = info;
     treeId = generateTreeId(userName);
