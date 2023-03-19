@@ -20,6 +20,10 @@ const handleSocketEvents = socket => {
     socket.on('createTree', data => tree.treeCommands.push({command: 'createTree', data: {...data, socket}}));
     socket.on('deleteTree', treeId => tree.treeCommands.push({command: 'deleteTree', data: {treeId, socket}}));
     socket.on('addBranch', ({treeId, siblingId}) => tree.treeCommands.push({command: 'addBranch', data: {treeId, siblingId, socket}}));
+    socket.onAny((eventName, ...args) => {
+        console.log(`Event: ${eventName}`);
+        for (let i = 0; i < args.length; ++i) console.log(`\t${JSON.stringify(args[i], null, 4)}`);
+    })
 }
 
 exports.handleConnection = socket => {
