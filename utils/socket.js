@@ -8,7 +8,7 @@ const subscribe = (socket, resource, token) => {
         socket.treePad.token = token;
         socket.treePad.resource = resource;
         socket.join(resource);
-        socket.emit('subscribe', 'success');
+        socket.emit('subscribe', {status: 'success', resource});
         tree.treeCommands.push({command: 'getTrees', data: {socket, resource}});
         resolve('ok');
     })
